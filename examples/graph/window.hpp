@@ -30,9 +30,10 @@ class Window : public abcg::OpenGLWindow {
 
   std::vector<Node> m_nodes;
   std::vector<Edge> m_edges;
-  int m_numNodes{5};
-  float m_nodeRadius{0.05f};
-  glm::vec3 m_nodeColor{1.0f};
+  int m_numNodes{5};                        // Número padrão de nós
+  float m_nodeRadius{0.05f};                // Raio padrão dos nós
+  glm::vec3 m_nodeColor{1.0f, 0.0f, 0.0f};  // Cor padrão dos nós (vermelho)
+  bool m_connectedGraph{true};              // Indica se o grafo é conectado
 
   GLuint m_program{};
   GLint m_colorLoc{};
@@ -55,6 +56,7 @@ class Window : public abcg::OpenGLWindow {
   void createNodes();
   void createEdges();
   void computeNodeDegrees();
+  bool isGraphConnected();  // Função para verificar conectividade
   void setupModel();
 };
 

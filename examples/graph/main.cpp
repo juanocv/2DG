@@ -12,7 +12,7 @@ int main(int argc, char **argv) {
         .height = 600,
         .showFPS = true,
         .showFullscreenButton = false,
-        .title = "Gerador de Grafos Conectados",
+        .title = "Gerador de Grafos Aleatórios",
     });
     app.run(window);
   } catch (std::exception const &e) {

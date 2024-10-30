@@ -1,13 +1,15 @@
 // window.cpp
 
 #include "window.hpp"
+
 #include <glm/gtc/constants.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <imgui.h>
 #include <random>
+#include <stack>
 
 void Window::onCreate() {
-  // Load shaders
+  // Carregar shaders
   auto const assetsPath{abcg::Application::getAssetsPath()};
 
   abcg::ShaderSource vertexShader;
@@ -20,53 +22,54 @@ void Window::onCreate() {
 
   m_program = abcg::createOpenGLProgram({vertexShader, fragmentShader});
 
-  // Get uniform locations
+  // Obter locais das variáveis uniformes
   m_colorLoc = glGetUniformLocation(m_program, "color");
   m_translationLoc = glGetUniformLocation(m_program, "translation");
   m_scaleLoc = glGetUniformLocation(m_program, "scale");
   m_projMatrixLoc = glGetUniformLocation(m_program, "projMatrix");
 
-  // Create initial nodes and setup model
+  // Criar nós iniciais e configurar o modelo
   createNodes();
   createEdges();
-  computeNodeDegrees(); // Compute degrees after creating edges
+  computeNodeDegrees();
   setupModel();
+
+  // Definir a cor de fundo como branco
+  glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
 }
 
 void Window::onPaint() {
+  // Limpar o buffer de cor
   glClear(GL_COLOR_BUFFER_BIT);
 
-  // Calculate aspect ratio
-  auto const aspectRatio = static_cast<float>(m_viewportSize.x) /
-                           static_cast<float>(m_viewportSize.y);
+  // Calcular a proporção de aspecto
+  auto const aspectRatio =
+      static_cast<float>(m_viewportSize.x) / static_cast<float>(m_viewportSize.y);
 
-  // Compute projection matrix
+  // Calcular a matriz de projeção
   if (aspectRatio >= 1.0f) {
-    // Wider than tall
+    // Mais largo que alto
     m_projMatrix = glm::ortho(-aspectRatio, aspectRatio, -1.0f, 1.0f);
   } else {
-    // Taller than wide
-    m_projMatrix =
-        glm::ortho(-1.0f, 1.0f, -1.0f / aspectRatio, 1.0f / aspectRatio);
+    // Mais alto que largo
+    m_projMatrix = glm::ortho(-1.0f, 1.0f, -1.0f / aspectRatio, 1.0f / aspectRatio);
   }
 
   glUseProgram(m_program);
 
-  // Set the projection matrix
+  // Definir a matriz de projeção
   glUniformMatrix4fv(m_projMatrixLoc, 1, GL_FALSE, &m_projMatrix[0][0]);
 
-  // Draw edges (lines)
-  glUniform3f(m_colorLoc, 1.0f, 1.0f, 1.0f); // White color for edges
-  glUniform1f(m_scaleLoc, 1.0f);             // No scaling for lines
-  glUniform2f(m_translationLoc, 0.0f, 0.0f); // No translation for lines
+  // Desenhar arestas (linhas)
+  glUniform3f(m_colorLoc, 0.0f, 0.0f, 0.0f);  // Cor das arestas (preto)
+  glUniform1f(m_scaleLoc, 1.0f);              // Sem escala para linhas
+  glUniform2f(m_translationLoc, 0.0f, 0.0f);  // Sem translação para linhas
 
-  // Prepare data for edges
+  // Preparar dados para as arestas
   std::vector<glm::vec2> edgePositions;
-  for (const auto &edge : m_edges) {
+  for (const auto& edge : m_edges) {
     glm::vec2 posA = m_nodes[edge.nodeA].position;
     glm::vec2 posB = m_nodes[edge.nodeB].position;
-
-    // Do NOT adjust positions for aspect ratio here
 
     edgePositions.push_back(posA);
     edgePositions.push_back(posB);
@@ -79,43 +82,50 @@ void Window::onPaint() {
 
   glDrawArrays(GL_LINES, 0, static_cast<GLsizei>(edgePositions.size()));
 
-  // Unbind
+  // Desvincular
   glBindBuffer(GL_ARRAY_BUFFER, 0);
   glBindVertexArray(0);
 
-  // Draw nodes
+  // Desenhar nós
   glUniform3f(m_colorLoc, m_nodeColor.r, m_nodeColor.g, m_nodeColor.b);
   glUniform1f(m_scaleLoc, m_nodeRadius);
 
   glBindVertexArray(m_VAO_nodes);
 
-  for (const auto &node : m_nodes) {
+  for (const auto& node : m_nodes) {
     glUniform2f(m_translationLoc, node.position.x, node.position.y);
     glDrawArrays(GL_TRIANGLE_FAN, 0, m_circlePoints + 2);
   }
 
-  // Unbind
+  // Desvincular
   glBindVertexArray(0);
   glUseProgram(0);
 }
 
 void Window::onPaintUI() {
-  // Set the next window to auto-resize
+  // Definir a próxima janela para começar minimizada
+  ImGui::SetNextWindowCollapsed(true, ImGuiCond_FirstUseEver);
+  
+  // Definir a próxima janela para auto redimensionar
   ImGui::SetNextWindowSize(ImVec2(0, 0), ImGuiCond_FirstUseEver);
 
-  ImGui::Begin("Graph Settings", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
+  ImGui::Begin("Configurações do Grafo", nullptr,
+               ImGuiWindowFlags_AlwaysAutoResize);
 
-  // Number of Nodes
-  ImGui::SliderInt("Number of Nodes", &m_numNodes, 1, 10);
+  // Número de Nós
+  ImGui::SliderInt("Número de Nós", &m_numNodes, 1, 10);
 
-  // Node Radius
-  ImGui::SliderFloat("Node Radius", &m_nodeRadius, 0.01f, 0.2f);
+  // Raio dos Nós
+  ImGui::SliderFloat("Raio dos Nós", &m_nodeRadius, 0.01f, 0.2f);
 
-  // Node Color
-  ImGui::ColorEdit3("Node Color", &m_nodeColor.r);
+  // Cor dos Nós
+  ImGui::ColorEdit3("Cor dos Nós", &m_nodeColor.r);
 
-  // New Graph Button
-  if (ImGui::Button("New Graph")) {
+  // Opção para grafo conectado ou desconexo
+  ImGui::Checkbox("Grafo Conectado", &m_connectedGraph);
+
+  // Botão para gerar um novo grafo
+  if (ImGui::Button("Novo Grafo")) {
     createNodes();
     createEdges();
     computeNodeDegrees();
@@ -123,37 +133,40 @@ void Window::onPaintUI() {
 
   ImGui::Separator();
 
-  // Display graph information
-  ImGui::Text("Graph Information");
-  ImGui::Text("Graph Type: Undirected");
-  ImGui::Text("Graph Connectivity: Connected");
-  ImGui::Text("Total Nodes: %d", m_numNodes);
-  ImGui::Text("Total Edges: %d", static_cast<int>(m_edges.size()));
+  // Verificar se o grafo é conectado
+  bool connected = isGraphConnected();
 
-  // Calculate average degree
+  ImGui::Text("Informações do Grafo");
+  ImGui::Text("Tipo do Grafo: Não Dirigido");
+  ImGui::Text("Conectividade do Grafo: %s",
+              connected ? "Conectado" : "Desconexo");
+  ImGui::Text("Total de Nós: %d", m_numNodes);
+  ImGui::Text("Total de Arestas: %d", static_cast<int>(m_edges.size()));
+
+  // Calcular grau médio
   int totalDegree = 0;
   for (const auto &node : m_nodes) {
     totalDegree += node.degree;
   }
   float averageDegree = static_cast<float>(totalDegree) / m_numNodes;
-  ImGui::Text("Average Degree: %.2f", averageDegree);
+  ImGui::Text("Grau Médio: %.2f", averageDegree);
 
   ImGui::Separator();
 
-  ImGui::Text("Degrees of Nodes:");
+  ImGui::Text("Grau dos Nós:");
   for (size_t i = 0; i < m_nodes.size(); ++i) {
-    ImGui::Text("Node %zu: %d", i, m_nodes[i].degree);
+    ImGui::Text("Nó %zu: %d", i, m_nodes[i].degree);
   }
 
   ImGui::Separator();
 
-  // Display adjacency list
-  ImGui::Text("Adjacency List:");
+  // Exibir lista de adjacência
+  ImGui::Text("Lista de Adjacência:");
   for (size_t i = 0; i < m_nodes.size(); ++i) {
-    ImGui::Text("Node %zu:", i);
+    ImGui::Text("Nó %zu:", i);
     ImGui::SameLine();
 
-    // Find adjacent nodes
+    // Encontrar nós adjacentes
     std::vector<int> adjacentNodes;
     for (const auto &edge : m_edges) {
       if (edge.nodeA == static_cast<int>(i)) {
@@ -164,7 +177,7 @@ void Window::onPaintUI() {
     }
 
     if (adjacentNodes.empty()) {
-      ImGui::Text(" None");
+      ImGui::Text(" Nenhum");
     } else {
       ImGui::Text(" ");
       for (size_t j = 0; j < adjacentNodes.size(); ++j) {
@@ -180,8 +193,8 @@ void Window::onPaintUI() {
 
   ImGui::End();
 
-  // Begin a new ImGui window for node labels
-  ImGui::Begin("Node Labels", nullptr,
+  // Renderizar rótulos dos nós
+  ImGui::Begin("Rótulos dos Nós", nullptr,
                ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoTitleBar |
                    ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoMove |
                    ImGuiWindowFlags_NoScrollbar |
@@ -191,26 +204,30 @@ void Window::onPaintUI() {
   ImGui::SetWindowSize(ImVec2(m_viewportSize.x, m_viewportSize.y));
 
   for (size_t i = 0; i < m_nodes.size(); ++i) {
-    // Transform node position to NDC
+    // Transformar posição do nó para NDC
     glm::vec4 ndcPosition =
         m_projMatrix * glm::vec4(m_nodes[i].position, 0.0f, 1.0f);
 
-    // Convert NDC to screen coordinates
+    // Converter NDC para coordenadas de tela
     float x =
         (ndcPosition.x * 0.5f + 0.5f) * static_cast<float>(m_viewportSize.x);
     float y =
         (-ndcPosition.y * 0.5f + 0.5f) * static_cast<float>(m_viewportSize.y);
 
-    // Offset to position the label slightly above the node
-    float labelOffsetY = -30.0f; // Adjust as needed
-    float labelOffsetX = 5.0f;   // Adjust as needed
+    // Calcular o tamanho do texto
+    std::string labelText = std::to_string(i);
+    ImVec2 textSize = ImGui::CalcTextSize(labelText.c_str());
 
-    // Set the cursor position and render the label
-    ImGui::SetCursorPos(ImVec2(x + labelOffsetX, y + labelOffsetY));
-    ImGui::Text("%zu", i);
+    // Centralizar o texto
+    float centeredX = x - textSize.x / 2.0f;
+    float centeredY = y - textSize.y / 2.0f;
+
+    // Definir a posição do cursor e renderizar o rótulo
+    ImGui::SetCursorPos(ImVec2(centeredX, centeredY));
+    ImGui::Text("%s", labelText.c_str());
   }
 
-  ImGui::End(); // End of "Node Labels" window
+  ImGui::End();
 }
 
 void Window::onResize(const glm::ivec2 &size) {
@@ -229,7 +246,7 @@ void Window::onDestroy() {
 }
 
 void Window::createNodes() {
-  // Generate random positions for nodes
+  // Gerar posições aleatórias para os nós
   m_nodes.clear();
   std::random_device rd;
   std::mt19937 gen(rd());
@@ -246,52 +263,141 @@ void Window::createNodes() {
 }
 
 void Window::createEdges() {
-  // Create edges to ensure the graph is connected
+  // Limpar arestas existentes
   m_edges.clear();
 
-  // Connect each node to the next to form a path (ensuring connectivity)
-  for (int i = 0; i < m_numNodes - 1; ++i) {
-    m_edges.push_back({i, i + 1});
-  }
+  if (m_connectedGraph) {
+    // Conectar cada nó ao próximo para garantir que o grafo seja conectado
+    for (int i = 0; i < m_numNodes - 1; ++i) {
+      m_edges.push_back({i, i + 1});
+    }
 
-  // Optionally, add some random edges to make the graph more interesting
-  std::random_device rd;
-  std::mt19937 gen(rd());
-  std::uniform_int_distribution<int> nodeDis(0, m_numNodes - 1);
+    // Adicionar arestas aleatórias
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<int> nodeDis(0, m_numNodes - 1);
 
-  int extraEdges = m_numNodes; // Add extra edges
-  for (int i = 0; i < extraEdges; ++i) {
-    int a = nodeDis(gen);
-    int b = nodeDis(gen);
-    if (a != b) {
-      // Avoid duplicate edges
-      if (std::none_of(m_edges.begin(), m_edges.end(), [&](const Edge &e) {
-            return (e.nodeA == a && e.nodeB == b) ||
-                   (e.nodeA == b && e.nodeB == a);
-          })) {
-        m_edges.push_back({a, b});
+    int extraEdges = m_numNodes; // Número de arestas extras
+    for (int i = 0; i < extraEdges; ++i) {
+      int a = nodeDis(gen);
+      int b = nodeDis(gen);
+      if (a != b) {
+        // Evitar arestas duplicadas
+        if (std::none_of(m_edges.begin(), m_edges.end(), [&](const Edge &e) {
+              return (e.nodeA == a && e.nodeB == b) ||
+                     (e.nodeA == b && e.nodeB == a);
+            })) {
+          m_edges.push_back({a, b});
+        }
+      }
+    }
+
+  } else {
+    // Dividir os nós em dois grupos
+    int splitIndex = m_numNodes / 2;
+
+    // Verificar se temos pelo menos dois nós em cada grupo
+    if (splitIndex == 0 || splitIndex == m_numNodes) {
+      // Não é possível dividir os nós em dois grupos, não adiciona arestas
+    } else {
+      // Adicionar arestas aleatórias dentro do primeiro grupo
+      std::random_device rd;
+      std::mt19937 gen(rd());
+      std::uniform_int_distribution<int> nodeDis1(0, splitIndex - 1);
+
+      int extraEdgesGroup1 =
+          splitIndex; // Número de arestas extras para o primeiro grupo
+      for (int i = 0; i < extraEdgesGroup1; ++i) {
+        int a = nodeDis1(gen);
+        int b = nodeDis1(gen);
+        if (a != b) {
+          // Evitar arestas duplicadas
+          if (std::none_of(m_edges.begin(), m_edges.end(), [&](const Edge &e) {
+                return (e.nodeA == a && e.nodeB == b) ||
+                       (e.nodeA == b && e.nodeB == a);
+              })) {
+            m_edges.push_back({a, b});
+          }
+        }
+      }
+
+      // Adicionar arestas aleatórias dentro do segundo grupo
+      std::uniform_int_distribution<int> nodeDis2(splitIndex, m_numNodes - 1);
+
+      int extraEdgesGroup2 =
+          m_numNodes -
+          splitIndex; // Número de arestas extras para o segundo grupo
+      for (int i = 0; i < extraEdgesGroup2; ++i) {
+        int a = nodeDis2(gen);
+        int b = nodeDis2(gen);
+        if (a != b) {
+          // Evitar arestas duplicadas
+          if (std::none_of(m_edges.begin(), m_edges.end(), [&](const Edge &e) {
+                return (e.nodeA == a && e.nodeB == b) ||
+                       (e.nodeA == b && e.nodeB == a);
+              })) {
+            m_edges.push_back({a, b});
+          }
+        }
       }
     }
   }
 
-  computeNodeDegrees(); // Recompute degrees after adding edges
+  // Recalcular graus dos nós
+  computeNodeDegrees();
 }
 
 void Window::computeNodeDegrees() {
-  // Reset degrees
+  // Resetar graus
   for (auto &node : m_nodes) {
     node.degree = 0;
   }
 
-  // Calculate degrees based on edges
+  // Calcular graus com base nas arestas
   for (const auto &edge : m_edges) {
     m_nodes[edge.nodeA].degree++;
     m_nodes[edge.nodeB].degree++;
   }
 }
 
+bool Window::isGraphConnected() {
+  if (m_nodes.empty())
+    return true;
+
+  // Vetor para marcar nós visitados
+  std::vector<bool> visited(m_nodes.size(), false);
+
+  // Iniciar DFS a partir do primeiro nó
+  std::stack<int> stack;
+  stack.push(0);
+  visited[0] = true;
+
+  while (!stack.empty()) {
+    int current = stack.top();
+    stack.pop();
+
+    // Encontrar nós adjacentes
+    for (const auto &edge : m_edges) {
+      int neighbor = -1;
+      if (edge.nodeA == current) {
+        neighbor = edge.nodeB;
+      } else if (edge.nodeB == current) {
+        neighbor = edge.nodeA;
+      }
+
+      if (neighbor != -1 && !visited[neighbor]) {
+        visited[neighbor] = true;
+        stack.push(neighbor);
+      }
+    }
+  }
+
+  // Verificar se todos os nós foram visitados
+  return std::all_of(visited.begin(), visited.end(), [](bool v) { return v; });
+}
+
 void Window::setupModel() {
-  // Create a circle model for nodes
+  // Criar modelo de círculo para os nós
   m_circleData.clear();
   const float step = glm::two_pi<float>() / static_cast<float>(m_circlePoints);
   for (int i = 0; i <= m_circlePoints; ++i) {
@@ -299,7 +405,7 @@ void Window::setupModel() {
     m_circleData.push_back(glm::vec2(std::cos(angle), std::sin(angle)));
   }
 
-  // Create VBO and VAO for nodes
+  // Criar VBO e VAO para os nós
   glGenBuffers(1, &m_VBO_nodes);
   glGenVertexArrays(1, &m_VAO_nodes);
 
@@ -312,24 +418,24 @@ void Window::setupModel() {
   glEnableVertexAttribArray(0);
   glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, nullptr);
 
-  // Unbind
+  // Desvincular
   glBindBuffer(GL_ARRAY_BUFFER, 0);
   glBindVertexArray(0);
 
-  // Create VBO and VAO for edges
+  // Criar VBO e VAO para as arestas
   glGenBuffers(1, &m_VBO_edges);
   glGenVertexArrays(1, &m_VAO_edges);
 
   glBindVertexArray(m_VAO_edges);
 
   glBindBuffer(GL_ARRAY_BUFFER, m_VBO_edges);
-  // We'll update the data dynamically
+  // Atualizaremos os dados dinamicamente
   glBufferData(GL_ARRAY_BUFFER, 0, nullptr, GL_DYNAMIC_DRAW);
 
   glEnableVertexAttribArray(0);
   glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, nullptr);
 
-  // Unbind
+  // Desvincular
   glBindBuffer(GL_ARRAY_BUFFER, 0);
   glBindVertexArray(0);
 }
