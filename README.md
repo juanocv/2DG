@@ -25,6 +25,7 @@ TO-DO: adicionar print do projeto rodando
 É possível gerar tanto grafos **conectados** quanto **desconectados**, além de:
 -  Determinar a quantidade de nós (de 1 a 10 nós)
 -  Personalizar a cor de exibição dos nós
+-  Escolher o raio das arestas exibidas
 
 Também são exibidas algumas características do grafo gerado, como:
 -  Grau de cada nó
