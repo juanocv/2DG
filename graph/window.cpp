@@ -200,9 +200,8 @@ void Window::onPaintUI() {
                    ImGuiWindowFlags_NoScrollbar |
                    ImGuiWindowFlags_NoSavedSettings);
 
-  // Atualiza a posição da janela e tamanho a cada frame
-  ImGui::SetWindowPos(ImVec2(0, 0), ImGuiCond_Always);
-  ImGui::SetWindowSize(ImVec2(m_viewportSize.x, m_viewportSize.y), ImGuiCond_Always);
+  ImGui::SetWindowPos(ImVec2(0, 0));
+  ImGui::SetWindowSize(ImVec2(m_viewportSize.x, m_viewportSize.y));
 
   for (size_t i = 0; i < m_nodes.size(); ++i) {
     // Transformar posição do nó para NDC
