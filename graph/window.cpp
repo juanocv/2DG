@@ -43,8 +43,8 @@ void Window::onPaint() {
   glClear(GL_COLOR_BUFFER_BIT);
 
   // Calcular a proporção de aspecto
-  auto const aspectRatio = static_cast<float>(m_viewportSize.x) /
-                           static_cast<float>(m_viewportSize.y);
+  auto const aspectRatio =
+      static_cast<float>(m_viewportSize.x) / static_cast<float>(m_viewportSize.y);
 
   // Calcular a matriz de projeção
   if (aspectRatio >= 1.0f) {
@@ -52,8 +52,7 @@ void Window::onPaint() {
     m_projMatrix = glm::ortho(-aspectRatio, aspectRatio, -1.0f, 1.0f);
   } else {
     // Mais alto que largo
-    m_projMatrix =
-        glm::ortho(-1.0f, 1.0f, -1.0f / aspectRatio, 1.0f / aspectRatio);
+    m_projMatrix = glm::ortho(-1.0f, 1.0f, -1.0f / aspectRatio, 1.0f / aspectRatio);
   }
 
   glUseProgram(m_program);
@@ -62,13 +61,13 @@ void Window::onPaint() {
   glUniformMatrix4fv(m_projMatrixLoc, 1, GL_FALSE, &m_projMatrix[0][0]);
 
   // Desenhar arestas (linhas)
-  glUniform3f(m_colorLoc, 0.0f, 0.0f, 0.0f); // Cor das arestas (preto)
-  glUniform1f(m_scaleLoc, 1.0f);             // Sem escala para linhas
-  glUniform2f(m_translationLoc, 0.0f, 0.0f); // Sem translação para linhas
+  glUniform3f(m_colorLoc, 0.0f, 0.0f, 0.0f);  // Cor das arestas (preto)
+  glUniform1f(m_scaleLoc, 1.0f);              // Sem escala para linhas
+  glUniform2f(m_translationLoc, 0.0f, 0.0f);  // Sem translação para linhas
 
   // Preparar dados para as arestas
   std::vector<glm::vec2> edgePositions;
-  for (const auto &edge : m_edges) {
+  for (const auto& edge : m_edges) {
     glm::vec2 posA = m_nodes[edge.nodeA].position;
     glm::vec2 posB = m_nodes[edge.nodeB].position;
 
@@ -93,7 +92,7 @@ void Window::onPaint() {
 
   glBindVertexArray(m_VAO_nodes);
 
-  for (const auto &node : m_nodes) {
+  for (const auto& node : m_nodes) {
     glUniform2f(m_translationLoc, node.position.x, node.position.y);
     glDrawArrays(GL_TRIANGLE_FAN, 0, m_circlePoints + 2);
   }
@@ -106,7 +105,7 @@ void Window::onPaint() {
 void Window::onPaintUI() {
   // Definir a próxima janela para começar minimizada
   ImGui::SetNextWindowCollapsed(true, ImGuiCond_FirstUseEver);
-
+  
   // Definir a próxima janela para auto redimensionar
   ImGui::SetNextWindowSize(ImVec2(0, 0), ImGuiCond_FirstUseEver);
 
@@ -203,27 +202,7 @@ void Window::onPaintUI() {
 
   // Atualiza a posição da janela e tamanho a cada frame
   ImGui::SetWindowPos(ImVec2(0, 0), ImGuiCond_Always);
-  ImGui::SetWindowSize(ImVec2(m_viewportSize.x, m_viewportSize.y),
-                       ImGuiCond_Always);
-
-  // Captura o ratio em pixels do dispositivo
-  float dpiScale = 1.0f;
-#ifdef __EMSCRIPTEN__
-  dpiScale = emscripten_get_device_pixel_ratio();
-#endif
-
-  // Iniciar a janela ImGui para os rótulos dos nós
-  ImGui::Begin("Rótulos dos Nós", nullptr,
-               ImGuiWindowFlags_NoBackground |
-               ImGuiWindowFlags_NoTitleBar |
-               ImGuiWindowFlags_NoInputs |
-               ImGuiWindowFlags_NoMove |
-               ImGuiWindowFlags_NoScrollbar |
-               ImGuiWindowFlags_NoSavedSettings);
-
-  // Definir a posição e o tamanho da janela para cobrir toda a viewport
-  ImGui::SetWindowPos(ImVec2(0, 0), ImGuiCond_Always);
-  ImGui::SetWindowSize(ImVec2(m_viewportSize.x / dpiScale, m_viewportSize.y / dpiScale), ImGuiCond_Always);
+  ImGui::SetWindowSize(ImVec2(m_viewportSize.x, m_viewportSize.y), ImGuiCond_Always);
 
   for (size_t i = 0; i < m_nodes.size(); ++i) {
     // Transformar posição do nó para NDC
@@ -231,8 +210,10 @@ void Window::onPaintUI() {
         m_projMatrix * glm::vec4(m_nodes[i].position, 0.0f, 1.0f);
 
     // Converter NDC para coordenadas de tela
-    float x = (ndcPosition.x * 0.5f + 0.5f) * (m_viewportSize.x / dpiScale);
-    float y = (-ndcPosition.y * 0.5f + 0.5f) * (m_viewportSize.y / dpiScale);
+    float x =
+        (ndcPosition.x * 0.5f + 0.5f) * static_cast<float>(m_viewportSize.x);
+    float y =
+        (-ndcPosition.y * 0.5f + 0.5f) * static_cast<float>(m_viewportSize.y);
 
     // Calcular o tamanho do texto
     std::string labelText = std::to_string(i);
@@ -242,41 +223,17 @@ void Window::onPaintUI() {
     float centeredX = x - textSize.x / 2.0f;
     float centeredY = y - textSize.y / 2.0f;
 
-    // Definir a posição do cursor
+    // Definir a posição do cursor e renderizar o rótulo
     ImGui::SetCursorPos(ImVec2(centeredX, centeredY));
-
-    // Definir a cor do texto para preto
-    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0, 0, 0, 1));
-
-    // Renderizar o rótulo
     ImGui::Text("%s", labelText.c_str());
-    
-    // Restaurar a cor do texto
-    ImGui::PopStyleColor();
   }
 
   ImGui::End();
 }
 
 void Window::onResize(const glm::ivec2 &size) {
-  // Captura o ratio em pixels do dispositivo
-  float dpiScale = 1.0f;
-#ifdef __EMSCRIPTEN__
-  dpiScale = emscripten_get_device_pixel_ratio();
-#endif
-
-  // Ajuste o viewport size
-  m_viewportSize = glm::vec2(size) * dpiScale;
-
-  // Define o OpenGL viewportSet the OpenGL viewport
-  glViewport(0, 0, static_cast<GLsizei>(m_viewportSize.x),
-             static_cast<GLsizei>(m_viewportSize.y));
-
-  // Atualiza o tamanho e escala do display do ImGui
-  ImGuiIO &io = ImGui::GetIO();
-  io.DisplaySize =
-      ImVec2(static_cast<float>(size.x), static_cast<float>(size.y));
-  io.DisplayFramebufferScale = ImVec2(dpiScale, dpiScale);
+  glViewport(0, 0, size.x, size.y);
+  m_viewportSize = size;
 }
 
 void Window::onDestroy() {

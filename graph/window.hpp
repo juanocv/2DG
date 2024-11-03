@@ -9,10 +9,6 @@
 #include <glm/vec3.hpp>
 #include <vector>
 
-#ifdef __EMSCRIPTEN__
-#include <emscripten.h>
-#endif
-
 class Window : public abcg::OpenGLWindow {
  protected:
   void onCreate() override;
@@ -50,7 +46,7 @@ class Window : public abcg::OpenGLWindow {
   GLuint m_VAO_edges{};
   GLuint m_VBO_edges{};
 
-  glm::vec2 m_viewportSize{};
+  glm::ivec2 m_viewportSize{};
 
   int m_circlePoints{100};
 
