@@ -10,14 +10,14 @@
 #include <vector>
 
 class Window : public abcg::OpenGLWindow {
- protected:
+protected:
   void onCreate() override;
   void onPaint() override;
   void onPaintUI() override;
-  void onResize(const glm::ivec2& size) override;
+  void onResize(const glm::ivec2 &size) override;
   void onDestroy() override;
 
- private:
+private:
   struct Node {
     glm::vec2 position;
     int degree{0};
@@ -30,10 +30,10 @@ class Window : public abcg::OpenGLWindow {
 
   std::vector<Node> m_nodes;
   std::vector<Edge> m_edges;
-  int m_numNodes{5};                        // Número padrão de nós
-  float m_nodeRadius{0.05f};                // Raio padrão dos nós
-  glm::vec3 m_nodeColor{1.0f, 0.0f, 0.0f};  // Cor padrão dos nós (vermelho)
-  bool m_connectedGraph{true};              // Indica se o grafo é conectado
+  int m_numNodes{5};                       // Número padrão de nós
+  float m_nodeRadius{0.05f};               // Raio padrão dos nós
+  glm::vec3 m_nodeColor{1.0f, 0.0f, 0.0f}; // Cor padrão dos nós (vermelho)
+  bool m_connectedGraph{true};             // Indica se o grafo é conectado
 
   GLuint m_program{};
   GLint m_colorLoc{};
@@ -46,6 +46,14 @@ class Window : public abcg::OpenGLWindow {
   GLuint m_VAO_edges{};
   GLuint m_VBO_edges{};
 
+  GLuint m_programText{};
+  GLint m_projMatrixLocText{};
+  GLint m_modelMatrixLocText{};
+  GLint m_colorLocText{};
+
+  GLuint m_VBO_text{};
+  GLuint m_VAO_text{};
+
   glm::ivec2 m_viewportSize{};
 
   int m_circlePoints{100};
@@ -56,7 +64,8 @@ class Window : public abcg::OpenGLWindow {
   void createNodes();
   void createEdges();
   void computeNodeDegrees();
-  bool isGraphConnected();  // Função para verificar conectividade
+  bool isGraphConnected(); // Função para verificar conectividade
+  void renderLabels();
   void setupModel();
 };
 

@@ -8,6 +8,8 @@
 #include <random>
 #include <stack>
 
+#include "assets/stb_easy_font.h"
+
 void Window::onCreate() {
   // Carregar shaders
   auto const assetsPath{abcg::Application::getAssetsPath()};
@@ -36,6 +38,27 @@ void Window::onCreate() {
 
   // Definir a cor de fundo como branco
   glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+
+  // Load and compile text shaders
+  abcg::ShaderSource vertexShaderText;
+  vertexShaderText.source = assetsPath + "text.vert";
+  vertexShaderText.stage = abcg::ShaderStage::Vertex;
+
+  abcg::ShaderSource fragmentShaderText;
+  fragmentShaderText.source = assetsPath + "text.frag";
+  fragmentShaderText.stage = abcg::ShaderStage::Fragment;
+
+  m_programText =
+      abcg::createOpenGLProgram({vertexShaderText, fragmentShaderText});
+
+  // Get uniform locations for the text shader
+  m_projMatrixLocText = glGetUniformLocation(m_programText, "projMatrix");
+  m_modelMatrixLocText = glGetUniformLocation(m_programText, "modelMatrix");
+  m_colorLocText = glGetUniformLocation(m_programText, "color");
+
+  // Generate VBO and VAO for text rendering
+  glGenVertexArrays(1, &m_VAO_text);
+  glGenBuffers(1, &m_VBO_text);
 }
 
 void Window::onPaint() {
@@ -101,6 +124,9 @@ void Window::onPaint() {
   // Desvincular
   glBindVertexArray(0);
   glUseProgram(0);
+
+  // Render labels
+  renderLabels();
 }
 
 void Window::onPaintUI() {
@@ -193,42 +219,6 @@ void Window::onPaintUI() {
   }
 
   ImGui::End();
-
-  // Renderizar rótulos dos nós
-  ImGui::Begin("Rótulos dos Nós", nullptr,
-               ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoTitleBar |
-                   ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoMove |
-                   ImGuiWindowFlags_NoScrollbar |
-                   ImGuiWindowFlags_NoSavedSettings);
-
-  ImGui::SetWindowPos(ImVec2(0, 0));
-  ImGui::SetWindowSize(ImVec2(m_viewportSize.x, m_viewportSize.y));
-
-  for (size_t i = 0; i < m_nodes.size(); ++i) {
-    // Transformar posição do nó para NDC
-    glm::vec4 ndcPosition =
-        m_projMatrix * glm::vec4(m_nodes[i].position, 0.0f, 1.0f);
-
-    // Converter NDC para coordenadas de tela
-    float x =
-        (ndcPosition.x * 0.5f + 0.5f) * static_cast<float>(m_viewportSize.x);
-    float y =
-        (-ndcPosition.y * 0.5f + 0.5f) * static_cast<float>(m_viewportSize.y);
-
-    // Calcular o tamanho do texto
-    std::string labelText = std::to_string(i);
-    ImVec2 textSize = ImGui::CalcTextSize(labelText.c_str());
-
-    // Centralizar o texto
-    float centeredX = x - textSize.x / 2.0f;
-    float centeredY = y - textSize.y / 2.0f;
-
-    // Definir a posição do cursor e renderizar o rótulo
-    ImGui::SetCursorPos(ImVec2(centeredX, centeredY));
-    ImGui::Text("%s", labelText.c_str());
-  }
-
-  ImGui::End();
 }
 
 void Window::onResize(const glm::ivec2 &size) {
@@ -244,6 +234,9 @@ void Window::onDestroy() {
 
   glDeleteBuffers(1, &m_VBO_edges);
   glDeleteVertexArrays(1, &m_VAO_edges);
+
+  glDeleteBuffers(1, &m_VBO_text);
+  glDeleteVertexArrays(1, &m_VAO_text);
 }
 
 void Window::createNodes() {
@@ -395,6 +388,87 @@ bool Window::isGraphConnected() {
 
   // Verificar se todos os nós foram visitados
   return std::all_of(visited.begin(), visited.end(), [](bool v) { return v; });
+}
+
+void Window::renderLabels() {
+  // Set up variables
+  char buffer[10];  // Buffer for the label text
+  std::vector<float> vertexBuffer(2000);  // Adjust size as needed
+  int numQuads;
+
+  // Use the text shader program
+  glUseProgram(m_programText);
+  glUniformMatrix4fv(m_projMatrixLocText, 1, GL_FALSE, &m_projMatrix[0][0]);
+  glUniform3f(m_colorLocText, 0.0f, 0.0f, 0.0f);  // Black color for text
+
+  glBindVertexArray(m_VAO_text);
+  glBindBuffer(GL_ARRAY_BUFFER, m_VBO_text);
+
+  for (size_t i = 0; i < m_nodes.size(); ++i) {
+    // Convert node index to string
+    snprintf(buffer, sizeof(buffer), "%zu", i);
+
+    // Generate vertex data for the label
+    numQuads = stb_easy_font_print(
+        0.0f, 0.0f,  // x and y offsets
+        buffer,       // Text to render
+        nullptr,      // Color (unused)
+        reinterpret_cast<char*>(vertexBuffer.data()), vertexBuffer.size() * sizeof(float));
+
+    int numVertices = numQuads * 6;  // 6 vertices per quad (2 triangles)
+
+    // Create model matrix for the label
+    glm::mat4 modelMatrix{1.0f};
+    modelMatrix = glm::translate(modelMatrix, glm::vec3(m_nodes[i].position, 0.0f));
+    modelMatrix = glm::scale(modelMatrix, glm::vec3(0.005f, 0.005f, 1.0f));
+
+    glUniformMatrix4fv(m_modelMatrixLocText, 1, GL_FALSE, &modelMatrix[0][0]);
+
+    // Set up VBO and VAO for the label
+    GLuint VBO, VAO;
+    glGenVertexArrays(1, &VAO);
+    glGenBuffers(1, &VBO);
+
+    glBindVertexArray(VAO);
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+
+    // Calculate the correct buffer size
+    size_t bufferSize = numVertices * 4 * sizeof(float);  // 4 floats per vertex
+
+    glBufferData(GL_ARRAY_BUFFER, bufferSize, vertexBuffer.data(), GL_DYNAMIC_DRAW);
+
+    // Position attribute (x and y)
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), nullptr);
+
+    // Draw the label
+    glDrawArrays(GL_TRIANGLES, 0, numVertices);
+
+    // Clean up
+    glDisableVertexAttribArray(0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+
+    glDeleteBuffers(1, &VBO);
+    glDeleteVertexArrays(1, &VAO);
+    
+    // Update buffer data
+    glBufferData(GL_ARRAY_BUFFER, bufferSize, vertexBuffer.data(), GL_DYNAMIC_DRAW);
+
+    // Position attribute
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), nullptr);
+
+    // Draw the label
+    glDrawArrays(GL_TRIANGLES, 0, numVertices);
+  }
+
+   // Clean up
+  glDisableVertexAttribArray(0);
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+  glBindVertexArray(0);
+  
+  glUseProgram(0);
 }
 
 void Window::setupModel() {
