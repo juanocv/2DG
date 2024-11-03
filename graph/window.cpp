@@ -43,8 +43,8 @@ void Window::onPaint() {
   glClear(GL_COLOR_BUFFER_BIT);
 
   // Calcular a proporção de aspecto
-  auto const aspectRatio =
-      static_cast<float>(m_viewportSize.x) / static_cast<float>(m_viewportSize.y);
+  auto const aspectRatio = static_cast<float>(m_viewportSize.x) /
+                           static_cast<float>(m_viewportSize.y);
 
   // Calcular a matriz de projeção
   if (aspectRatio >= 1.0f) {
@@ -52,7 +52,8 @@ void Window::onPaint() {
     m_projMatrix = glm::ortho(-aspectRatio, aspectRatio, -1.0f, 1.0f);
   } else {
     // Mais alto que largo
-    m_projMatrix = glm::ortho(-1.0f, 1.0f, -1.0f / aspectRatio, 1.0f / aspectRatio);
+    m_projMatrix =
+        glm::ortho(-1.0f, 1.0f, -1.0f / aspectRatio, 1.0f / aspectRatio);
   }
 
   glUseProgram(m_program);
@@ -61,13 +62,13 @@ void Window::onPaint() {
   glUniformMatrix4fv(m_projMatrixLoc, 1, GL_FALSE, &m_projMatrix[0][0]);
 
   // Desenhar arestas (linhas)
-  glUniform3f(m_colorLoc, 0.0f, 0.0f, 0.0f);  // Cor das arestas (preto)
-  glUniform1f(m_scaleLoc, 1.0f);              // Sem escala para linhas
-  glUniform2f(m_translationLoc, 0.0f, 0.0f);  // Sem translação para linhas
+  glUniform3f(m_colorLoc, 0.0f, 0.0f, 0.0f); // Cor das arestas (preto)
+  glUniform1f(m_scaleLoc, 1.0f);             // Sem escala para linhas
+  glUniform2f(m_translationLoc, 0.0f, 0.0f); // Sem translação para linhas
 
   // Preparar dados para as arestas
   std::vector<glm::vec2> edgePositions;
-  for (const auto& edge : m_edges) {
+  for (const auto &edge : m_edges) {
     glm::vec2 posA = m_nodes[edge.nodeA].position;
     glm::vec2 posB = m_nodes[edge.nodeB].position;
 
@@ -92,7 +93,7 @@ void Window::onPaint() {
 
   glBindVertexArray(m_VAO_nodes);
 
-  for (const auto& node : m_nodes) {
+  for (const auto &node : m_nodes) {
     glUniform2f(m_translationLoc, node.position.x, node.position.y);
     glDrawArrays(GL_TRIANGLE_FAN, 0, m_circlePoints + 2);
   }
@@ -105,7 +106,7 @@ void Window::onPaint() {
 void Window::onPaintUI() {
   // Definir a próxima janela para começar minimizada
   ImGui::SetNextWindowCollapsed(true, ImGuiCond_FirstUseEver);
-  
+
   // Definir a próxima janela para auto redimensionar
   ImGui::SetNextWindowSize(ImVec2(0, 0), ImGuiCond_FirstUseEver);
 
@@ -397,8 +398,13 @@ bool Window::isGraphConnected() {
 }
 
 void Window::setupModel() {
-  // Criar modelo de círculo para os nós
+  // Criar modelo de círculo para os vértices
   m_circleData.clear();
+
+  // Adicionar o centro do vértice
+  m_circleData.push_back(glm::vec2(0.0f, 0.0f)); // Center of the circle
+
+  // Gerar pontos de perímetro
   const float step = glm::two_pi<float>() / static_cast<float>(m_circlePoints);
   for (int i = 0; i <= m_circlePoints; ++i) {
     float angle = i * step;
@@ -429,6 +435,7 @@ void Window::setupModel() {
   glBindVertexArray(m_VAO_edges);
 
   glBindBuffer(GL_ARRAY_BUFFER, m_VBO_edges);
+
   // Atualizaremos os dados dinamicamente
   glBufferData(GL_ARRAY_BUFFER, 0, nullptr, GL_DYNAMIC_DRAW);
 
