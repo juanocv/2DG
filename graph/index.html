@@ -12,13 +12,6 @@
       font-family: arial;
     }
 
-    html,
-    body {
-      margin: 0;
-      padding: 0;
-      height: 100%;
-    }
-
     .emscripten {
       padding: 0;
       padding-right: 0;
@@ -52,8 +45,8 @@
       display: none;
       border: 0px none;
       background-color: #00000000;
-      width: 100%;
-      height: 100%;
+      width: 600px;
+      height: 600px;
 
       image-rendering: optimizeSpeed;
       image-rendering: -moz-crisp-edges;
@@ -107,11 +100,6 @@
       background-color: rgba(255, 255, 255, 0);
     }
 
-    .canvas-container {
-      width: 100%;
-      height: 100%;
-    }
-
     @-webkit-keyframes rotation {
       from {
         -webkit-transform: rotate(0deg);
@@ -163,7 +151,7 @@
   <div class="emscripten">
     <progress value="50" max="100" id="progress" hidden=1></progress>
   </div>
-  <div class="canvas-container">
+  <div class="emscripten">
     <canvas class="emscripten" id="canvas" oncontextmenu="event.preventDefault()"></canvas>
   </div>
   <textarea class="emscripten" id="output" rows="6"></textarea>
@@ -220,15 +208,10 @@
       canvas: (function () {
         var canvas = document.getElementById('canvas');
 
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
-
         canvas.addEventListener("webglcontextlost", function (e) { alert('WebGL context lost. You will need to reload the page.'); e.preventDefault(); }, false);
 
         return canvas;
       })(),
-      // Resize the canvas when the window is resized
-      resizeCanvas: false,
       setStatus: function (text) {
         if (!Module.setStatus.last) Module.setStatus.last = { time: Date.now(), text: '' };
         if (text === Module.setStatus.last.text) return;
@@ -271,22 +254,6 @@
         if (text) Module.printErr('[post-exception status] ' + text);
       };
     };
-    // Function to resize the canvas
-    function resizeCanvas() {
-      var canvas = Module.canvas;
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-
-      // Notify the application of the new size
-      if (Module.setCanvasSize) {
-        Module.setCanvasSize(canvas.width, canvas.height);
-      }
-    }
-
-    window.addEventListener('resize', resizeCanvas);
-
-    // Call resizeCanvas initially to set the canvas size
-    resizeCanvas();
   </script>
   <script async type="text/javascript" src="graph.js"></script>
 </body>

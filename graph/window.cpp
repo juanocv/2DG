@@ -36,18 +36,6 @@ void Window::onCreate() {
 
   // Definir a cor de fundo como branco
   glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
-
-#ifdef __EMSCRIPTEN__
-  // Set up the resize callback
-  emscripten_set_resize_callback(
-      EMSCRIPTEN_EVENT_TARGET_WINDOW, this, true,
-      [](int eventType, const EmscriptenUiEvent *e, void *userData) -> EM_BOOL {
-        Window *window = static_cast<Window *>(userData);
-        window->onResize({static_cast<int>(e->windowInnerWidth),
-                          static_cast<int>(e->windowInnerHeight)});
-        return EM_TRUE;
-      });
-#endif
 }
 
 void Window::onPaint() {
@@ -224,26 +212,18 @@ void Window::onPaintUI() {
   dpiScale = emscripten_get_device_pixel_ratio();
 #endif
 
-  // Get the canvas size in CSS pixels
-  float canvasWidth = m_viewportSize.x / dpiScale;
-  float canvasHeight = m_viewportSize.y / dpiScale;
-
-  // Update ImGui window size
-  ImGui::SetWindowPos(ImVec2(0, 0), ImGuiCond_Always);
-  ImGui::SetWindowSize(ImVec2(canvasWidth, canvasHeight), ImGuiCond_Always);
-  
   // Iniciar a janela ImGui para os rótulos dos nós
   ImGui::Begin("Rótulos dos Nós", nullptr,
-               ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoTitleBar |
-                   ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoMove |
-                   ImGuiWindowFlags_NoScrollbar |
-                   ImGuiWindowFlags_NoSavedSettings);
+               ImGuiWindowFlags_NoBackground |
+               ImGuiWindowFlags_NoTitleBar |
+               ImGuiWindowFlags_NoInputs |
+               ImGuiWindowFlags_NoMove |
+               ImGuiWindowFlags_NoScrollbar |
+               ImGuiWindowFlags_NoSavedSettings);
 
   // Definir a posição e o tamanho da janela para cobrir toda a viewport
   ImGui::SetWindowPos(ImVec2(0, 0), ImGuiCond_Always);
-  ImGui::SetWindowSize(
-      ImVec2(m_viewportSize.x / dpiScale, m_viewportSize.y / dpiScale),
-      ImGuiCond_Always);
+  ImGui::SetWindowSize(ImVec2(m_viewportSize.x / dpiScale, m_viewportSize.y / dpiScale), ImGuiCond_Always);
 
   for (size_t i = 0; i < m_nodes.size(); ++i) {
     // Transformar posição do nó para NDC
@@ -270,7 +250,7 @@ void Window::onPaintUI() {
 
     // Renderizar o rótulo
     ImGui::Text("%s", labelText.c_str());
-
+    
     // Restaurar a cor do texto
     ImGui::PopStyleColor();
   }
@@ -279,43 +259,24 @@ void Window::onPaintUI() {
 }
 
 void Window::onResize(const glm::ivec2 &size) {
-  // Get the device pixel ratio
+  // Captura o ratio em pixels do dispositivo
   float dpiScale = 1.0f;
 #ifdef __EMSCRIPTEN__
   dpiScale = emscripten_get_device_pixel_ratio();
+#endif
 
-  // Get the canvas size in CSS pixels
-  double canvasWidthCss, canvasHeightCss;
-  emscripten_get_element_css_size("canvas", &canvasWidthCss, &canvasHeightCss);
+  // Ajuste o viewport size
+  m_viewportSize = glm::vec2(size) * dpiScale;
 
-  // Calculate the canvas size in pixels
-  int canvasWidth = static_cast<int>(canvasWidthCss * dpiScale);
-  int canvasHeight = static_cast<int>(canvasHeightCss * dpiScale);
+  // Define o OpenGL viewportSet the OpenGL viewport
+  glViewport(0, 0, static_cast<GLsizei>(m_viewportSize.x),
+             static_cast<GLsizei>(m_viewportSize.y));
 
-  // Adjust the viewport size
-  m_viewportSize = glm::vec2(canvasWidth, canvasHeight);
-
-  // Set the OpenGL viewport
-  glViewport(0, 0, canvasWidth, canvasHeight);
-
-  // Update ImGui display size and scaling
-  ImGuiIO &io = ImGui::GetIO();
-  io.DisplaySize = ImVec2(static_cast<float>(canvasWidthCss),
-                          static_cast<float>(canvasHeightCss));
-  io.DisplayFramebufferScale = ImVec2(dpiScale, dpiScale);
-#else
-  // For native builds
-  m_viewportSize = glm::vec2(size);
-
-  // Set the OpenGL viewport
-  glViewport(0, 0, size.x, size.y);
-
-  // Update ImGui display size and scaling
+  // Atualiza o tamanho e escala do display do ImGui
   ImGuiIO &io = ImGui::GetIO();
   io.DisplaySize =
       ImVec2(static_cast<float>(size.x), static_cast<float>(size.y));
-  io.DisplayFramebufferScale = ImVec2(1.0f, 1.0f);
-#endif
+  io.DisplayFramebufferScale = ImVec2(dpiScale, dpiScale);
 }
 
 void Window::onDestroy() {
