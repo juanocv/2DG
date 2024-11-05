@@ -1,10 +1,10 @@
 # 2DG
 
 Autoria:
-> Diego Guerra 
-> RA: 11201810534
-> Juan Oliveira de Carvalho 
-> RA: 11201810997
+> Diego Guerra<br> 
+> RA: 11201810534<br>
+> Juan Oliveira de Carvalho<br> 
+> RA: 11201810997<br>
 
 ## Objetivos
 O objetivo deste projeto é desenvolver uma aplicação simples com gráficos 2D, utilizando-se de técnicas e bibliotecas de computação gráfica.
