@@ -21,9 +21,9 @@ Uma versão compilada em WebAssembly está disponível para ser executada em qua
 Também é possível compilar o projeto localmente, seguindo as instruções de [instalação do ABCg](https://hbatagelo.github.io/cg/config.html), clonando o repositório e executando os scripts
 ```build.sh``` ou ```build.bat```, caso esteja no Linux ou Windows respectivamente. Os scripts irão compilar o projeto e criar um executável no diretório ```build```.
 
-Nos releases do repositório providenciamos um binário já compilado para Linux.
+Nos [releases](https://github.com/juanocv/2DG/releases/tag/v1.0.0) do repositório providenciamos um binário já compilado para Linux.
 
-TO-DO: adicionar print do projeto rodando
+![Alt text](images/print.png)
 
 ## Funcionalidades
 
