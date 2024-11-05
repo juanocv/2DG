@@ -1,9 +1,9 @@
 # 2DG
 
 Autoria:
-> Diego Guerra\ 
-> RA: 11201810534\
-> Juan Oliveira de Carvalho\ 
+> Diego Guerra 
+> RA: 11201810534
+> Juan Oliveira de Carvalho 
 > RA: 11201810997
 
 ## Objetivos
