@@ -10,9 +10,7 @@ int main(int argc, char **argv) {
     window.setWindowSettings({
         .width = 800,
         .height = 600,
-        .showFPS = true,
-        .showFullscreenButton = false,
-        .title = "Gerador de Grafos Aleatórios",
+        .title = "Gerador de Grafos Aleatórios em 2D",
     });
     app.run(window);
   } catch (std::exception const &e) {

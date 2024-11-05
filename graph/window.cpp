@@ -8,6 +8,10 @@
 #include <random>
 #include <stack>
 
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
+
 void Window::onCreate() {
   // Carrega os shaders para nós e arestas
   auto const assetsPath{abcg::Application::getAssetsPath()};
@@ -61,7 +65,8 @@ void Window::onCreate() {
   m_textProjMatrixLoc = glGetUniformLocation(m_textProgram, "projMatrix");
   m_fontTextureLoc = glGetUniformLocation(m_textProgram, "fontTexture");
 
-  // Ativa o texto do programa de shader e define a textura da fonte como uniforme
+  // Ativa o texto do programa de shader e define a textura da fonte como
+  // uniforme
   glUseProgram(m_textProgram);
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D, m_fontTexture);
@@ -87,12 +92,13 @@ void Window::initCharacters() {
     float x = (i % 6) * charWidth;  // 6 números na primeira fileira
     float y = (i / 6) * charHeight; // O restante na segunda fileira
 
-    // Ajusta as coordenadas de textura em sentido horário do canto inferior esquerdo
-    m_characters[i].texCoords[0] = {x, y};                     // Bottom-left
-    m_characters[i].texCoords[1] = {x + charWidth, y};         // Bottom-right
+    // Ajusta as coordenadas de textura em sentido horário do canto inferior
+    // esquerdo
+    m_characters[i].texCoords[0] = {x, y};             // Bottom-left
+    m_characters[i].texCoords[1] = {x + charWidth, y}; // Bottom-right
     m_characters[i].texCoords[2] = {x + charWidth, y + charHeight}; // Top-right
-    m_characters[i].texCoords[3] = {x, y + charHeight};        // Top-left
-    
+    m_characters[i].texCoords[3] = {x, y + charHeight};             // Top-left
+
     m_characters[i].advance = 0.1f; // Normaliza o avanço de largura
   }
 }
@@ -257,6 +263,43 @@ void Window::onPaint() {
 }
 
 void Window::onPaintUI() {
+#ifdef __EMSCRIPTEN__
+  ImGui::Begin("Fullscreen", nullptr,
+               ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoCollapse);
+
+  // Botão de habilitar modo tela cheia
+  if (ImGui::Button("Toggle Fullscreen")) {
+    // Verifica se já está no modo
+    int canvasWidth, canvasHeight;
+    emscripten_get_canvas_element_size("#canvas", &canvasWidth, &canvasHeight);
+
+    int screenWidth, screenHeight;
+    emscripten_get_screen_size(&screenWidth, &screenHeight);
+
+    if (canvasWidth == screenWidth && canvasHeight == screenHeight) {
+      // Sai do modo fullscreen se já estiver nele
+      if (emscripten_exit_fullscreen() != EMSCRIPTEN_RESULT_SUCCESS) {
+        fmt::print("Failed to exit fullscreen mode\n");
+      }
+    } else {
+      // Entra no modo fullscreen se ainda não estiver nele
+      if (emscripten_request_fullscreen("#canvas", EM_TRUE) !=
+          EMSCRIPTEN_RESULT_SUCCESS) {
+        fmt::print("Failed to enter fullscreen mode\n");
+      }
+    }
+  }
+#else
+  // Contador de FPS (para builds que não são WebAssembly)
+  ImGui::Begin("FPS", nullptr,
+               ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoCollapse);
+
+  // Mostra o contador de FPS
+  ImGui::Text("FPS: %.1f", ImGui::GetIO().Framerate);
+#endif
+
+  ImGui::End();
+
   // Definir a próxima janela para começar minimizada
   ImGui::SetNextWindowCollapsed(true, ImGuiCond_FirstUseEver);
 
