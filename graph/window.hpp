@@ -46,13 +46,22 @@ private:
   GLuint m_VAO_edges{};
   GLuint m_VBO_edges{};
 
-  GLuint m_programText{};
-  GLint m_projMatrixLocText{};
-  GLint m_modelMatrixLocText{};
-  GLint m_colorLocText{};
+  GLuint m_fontTexture{};
+  GLint m_fontTextureLoc{};
+  GLuint m_textProgram{};
+  GLint m_textColorLoc{};
+  GLint m_textProjMatrixLoc{};
 
-  GLuint m_VBO_text{};
   GLuint m_VAO_text{};
+  GLuint m_VBO_text{};
+
+  struct Character {
+    glm::vec2 texCoords[4]; // Texture coordinates for the quad
+    float advance;          // How much to move after rendering this character
+  };
+
+  // Map digits to Character data
+  std::array<Character, 10> m_characters;
 
   glm::ivec2 m_viewportSize{};
 
@@ -65,8 +74,10 @@ private:
   void createEdges();
   void computeNodeDegrees();
   bool isGraphConnected(); // Função para verificar conectividade
-  void renderLabels();
   void setupModel();
+  void renderText(std::string text, glm::vec2 position);
+  void initCharacters();
+  void setupTextRendering();
 };
 
 #endif

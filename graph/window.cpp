@@ -8,10 +8,8 @@
 #include <random>
 #include <stack>
 
-#include "assets/stb_easy_font.h"
-
 void Window::onCreate() {
-  // Carregar shaders
+  // Carrega os shaders para nós e arestas
   auto const assetsPath{abcg::Application::getAssetsPath()};
 
   abcg::ShaderSource vertexShader;
@@ -24,41 +22,149 @@ void Window::onCreate() {
 
   m_program = abcg::createOpenGLProgram({vertexShader, fragmentShader});
 
-  // Obter locais das variáveis uniformes
+  // Adquire as localizações uniformes para o shader
   m_colorLoc = glGetUniformLocation(m_program, "color");
   m_translationLoc = glGetUniformLocation(m_program, "translation");
   m_scaleLoc = glGetUniformLocation(m_program, "scale");
   m_projMatrixLoc = glGetUniformLocation(m_program, "projMatrix");
 
-  // Criar nós iniciais e configurar o modelo
+  // Cria nós e arestas
   createNodes();
   createEdges();
   computeNodeDegrees();
   setupModel();
 
-  // Definir a cor de fundo como branco
+  // Define a cor do plano de fundo para branco
   glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
 
-  // Load and compile text shaders
-  abcg::ShaderSource vertexShaderText;
-  vertexShaderText.source = assetsPath + "text.vert";
-  vertexShaderText.stage = abcg::ShaderStage::Vertex;
+  // Carrega a textura da fonte
+  abcg::OpenGLTextureCreateInfo textureInfo{.path = assetsPath + "font.png",
+                                            .generateMipmaps = false,
+                                            .flipUpsideDown = false};
+  m_fontTexture = abcg::loadOpenGLTexture(textureInfo);
 
-  abcg::ShaderSource fragmentShaderText;
-  fragmentShaderText.source = assetsPath + "text.frag";
-  fragmentShaderText.stage = abcg::ShaderStage::Fragment;
+  // Define parâmetros de textura
+  glBindTexture(GL_TEXTURE_2D, m_fontTexture);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
-  m_programText =
-      abcg::createOpenGLProgram({vertexShaderText, fragmentShaderText});
+  // Cria um programa de shader para renderização dos textos
+  m_textProgram = abcg::createOpenGLProgram(
+      {{.source = assetsPath + "text.vert", .stage = abcg::ShaderStage::Vertex},
+       {.source = assetsPath + "text.frag",
+        .stage = abcg::ShaderStage::Fragment}});
 
-  // Get uniform locations for the text shader
-  m_projMatrixLocText = glGetUniformLocation(m_programText, "projMatrix");
-  m_modelMatrixLocText = glGetUniformLocation(m_programText, "modelMatrix");
-  m_colorLocText = glGetUniformLocation(m_programText, "color");
+  // Adquire as localizações uniformes para o programa de shader
+  m_textColorLoc = glGetUniformLocation(m_textProgram, "textColor");
+  m_textProjMatrixLoc = glGetUniformLocation(m_textProgram, "projMatrix");
+  m_fontTextureLoc = glGetUniformLocation(m_textProgram, "fontTexture");
 
-  // Generate VBO and VAO for text rendering
+  // Ativa o texto do programa de shader e define a textura da fonte como uniforme
+  glUseProgram(m_textProgram);
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D, m_fontTexture);
+  glUniform1i(m_fontTextureLoc, 0);
+  glUseProgram(0);
+
+  // Habilita blending para transparência
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+  // Inicializa dados de caracteres e define a renderização de texto VAO/VBO
+  initCharacters();
+  setupTextRendering();
+}
+
+void Window::initCharacters() {
+  // Define as coordenadas de textura para cada dígito (0-9)
+  // Cada número tem 10x20 pixels de proporção em uma textura 64x64
+  const float charWidth = 10.0f / 64.0f;
+  const float charHeight = 20.0f / 64.0f;
+
+  for (int i = 0; i < 10; ++i) {
+    float x = (i % 6) * charWidth;  // 6 números na primeira fileira
+    float y = (i / 6) * charHeight; // O restante na segunda fileira
+
+    // Ajusta as coordenadas de textura em sentido horário do canto inferior esquerdo
+    m_characters[i].texCoords[0] = {x, y};                     // Bottom-left
+    m_characters[i].texCoords[1] = {x + charWidth, y};         // Bottom-right
+    m_characters[i].texCoords[2] = {x + charWidth, y + charHeight}; // Top-right
+    m_characters[i].texCoords[3] = {x, y + charHeight};        // Top-left
+    
+    m_characters[i].advance = 0.1f; // Normaliza o avanço de largura
+  }
+}
+
+void Window::setupTextRendering() {
   glGenVertexArrays(1, &m_VAO_text);
   glGenBuffers(1, &m_VBO_text);
+
+  glBindVertexArray(m_VAO_text);
+
+  glBindBuffer(GL_ARRAY_BUFFER, m_VBO_text);
+  glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * 6 * 4, nullptr,
+               GL_DYNAMIC_DRAW);
+
+  // Atributos do vértice
+  glEnableVertexAttribArray(0); // Posição
+  glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), 0);
+
+  glEnableVertexAttribArray(1); // Coordenada da textura
+  glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat),
+                        (void *)(2 * sizeof(GLfloat)));
+
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+  glBindVertexArray(0);
+}
+
+void Window::renderText(std::string text, glm::vec2 position) {
+  float scale = 0.05f; // Tamanho dos números (texto)
+
+  // Centraliza o texto em relação à posição dos nós
+  float textWidth = text.length() * scale;
+  float xOffset = -textWidth / 2.0f;
+  float yOffset = -scale;
+
+  std::vector<GLfloat> vertices;
+
+  float x = position.x + xOffset;
+  float y = position.y + yOffset;
+
+  for (char c : text) {
+    if (c < '0' || c > '9')
+      continue;
+
+    Character ch = m_characters[c - '0'];
+
+    float w = scale;
+    float h = scale * 2.0f; // Mantém o aspect ratio 1:2
+
+    // Define os vértices quad com as coordenadas corretas da textura
+    GLfloat quadVertices[] = {
+        // Posições        // Coordenadas de textura
+        x,     y + h, ch.texCoords[0].x, ch.texCoords[0].y, // Superior-esquerda
+        x + w, y + h, ch.texCoords[1].x, ch.texCoords[1].y, // Superior-direita
+        x + w, y,     ch.texCoords[2].x, ch.texCoords[2].y, // inferior-direita
+
+        x,     y + h, ch.texCoords[0].x, ch.texCoords[0].y, // Superior-esquerda
+        x + w, y,     ch.texCoords[2].x, ch.texCoords[2].y, // Inferior-direita
+        x,     y,     ch.texCoords[3].x, ch.texCoords[3].y  // Inferior-esquerda
+    };
+
+    vertices.insert(vertices.end(), std::begin(quadVertices),
+                    std::end(quadVertices));
+    x += w; // Avança o cursor
+  }
+
+  // Atualiza os dados do vértice
+  glBindBuffer(GL_ARRAY_BUFFER, m_VBO_text);
+  glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(GLfloat),
+               vertices.data(), GL_DYNAMIC_DRAW);
+
+  // Desenha o texto
+  glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(vertices.size() / 4));
 }
 
 void Window::onPaint() {
@@ -125,8 +231,29 @@ void Window::onPaint() {
   glBindVertexArray(0);
   glUseProgram(0);
 
-  // Render labels
-  renderLabels();
+  // Habilita blending para texto
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+  // Define renderização do texto
+  glUseProgram(m_textProgram);
+  glUniformMatrix4fv(m_textProjMatrixLoc, 1, GL_FALSE, &m_projMatrix[0][0]);
+  glUniform3f(m_textColorLoc, 0.0f, 0.0f, 0.0f); // Black text
+
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D, m_fontTexture);
+
+  glBindVertexArray(m_VAO_text);
+
+  // Renderiza os rótulos dos nós
+  for (size_t i = 0; i < m_nodes.size(); ++i) {
+    renderText(std::to_string(i), m_nodes[i].position);
+  }
+
+  // Limpeza
+  glBindVertexArray(0);
+  glUseProgram(0);
+  glDisable(GL_BLEND);
 }
 
 void Window::onPaintUI() {
@@ -235,6 +362,8 @@ void Window::onDestroy() {
   glDeleteBuffers(1, &m_VBO_edges);
   glDeleteVertexArrays(1, &m_VAO_edges);
 
+  glDeleteProgram(m_textProgram);
+  glDeleteTextures(1, &m_fontTexture);
   glDeleteBuffers(1, &m_VBO_text);
   glDeleteVertexArrays(1, &m_VAO_text);
 }
@@ -388,87 +517,6 @@ bool Window::isGraphConnected() {
 
   // Verificar se todos os nós foram visitados
   return std::all_of(visited.begin(), visited.end(), [](bool v) { return v; });
-}
-
-void Window::renderLabels() {
-  // Set up variables
-  char buffer[10];  // Buffer for the label text
-  std::vector<float> vertexBuffer(2000);  // Adjust size as needed
-  int numQuads;
-
-  // Use the text shader program
-  glUseProgram(m_programText);
-  glUniformMatrix4fv(m_projMatrixLocText, 1, GL_FALSE, &m_projMatrix[0][0]);
-  glUniform3f(m_colorLocText, 0.0f, 0.0f, 0.0f);  // Black color for text
-
-  glBindVertexArray(m_VAO_text);
-  glBindBuffer(GL_ARRAY_BUFFER, m_VBO_text);
-
-  for (size_t i = 0; i < m_nodes.size(); ++i) {
-    // Convert node index to string
-    snprintf(buffer, sizeof(buffer), "%zu", i);
-
-    // Generate vertex data for the label
-    numQuads = stb_easy_font_print(
-        0.0f, 0.0f,  // x and y offsets
-        buffer,       // Text to render
-        nullptr,      // Color (unused)
-        reinterpret_cast<char*>(vertexBuffer.data()), vertexBuffer.size() * sizeof(float));
-
-    int numVertices = numQuads * 6;  // 6 vertices per quad (2 triangles)
-
-    // Create model matrix for the label
-    glm::mat4 modelMatrix{1.0f};
-    modelMatrix = glm::translate(modelMatrix, glm::vec3(m_nodes[i].position, 0.0f));
-    modelMatrix = glm::scale(modelMatrix, glm::vec3(0.005f, 0.005f, 1.0f));
-
-    glUniformMatrix4fv(m_modelMatrixLocText, 1, GL_FALSE, &modelMatrix[0][0]);
-
-    // Set up VBO and VAO for the label
-    GLuint VBO, VAO;
-    glGenVertexArrays(1, &VAO);
-    glGenBuffers(1, &VBO);
-
-    glBindVertexArray(VAO);
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-
-    // Calculate the correct buffer size
-    size_t bufferSize = numVertices * 4 * sizeof(float);  // 4 floats per vertex
-
-    glBufferData(GL_ARRAY_BUFFER, bufferSize, vertexBuffer.data(), GL_DYNAMIC_DRAW);
-
-    // Position attribute (x and y)
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), nullptr);
-
-    // Draw the label
-    glDrawArrays(GL_TRIANGLES, 0, numVertices);
-
-    // Clean up
-    glDisableVertexAttribArray(0);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glBindVertexArray(0);
-
-    glDeleteBuffers(1, &VBO);
-    glDeleteVertexArrays(1, &VAO);
-    
-    // Update buffer data
-    glBufferData(GL_ARRAY_BUFFER, bufferSize, vertexBuffer.data(), GL_DYNAMIC_DRAW);
-
-    // Position attribute
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), nullptr);
-
-    // Draw the label
-    glDrawArrays(GL_TRIANGLES, 0, numVertices);
-  }
-
-   // Clean up
-  glDisableVertexAttribArray(0);
-  glBindBuffer(GL_ARRAY_BUFFER, 0);
-  glBindVertexArray(0);
-  
-  glUseProgram(0);
 }
 
 void Window::setupModel() {
