@@ -18,6 +18,8 @@ Este projeto foi desenvolvido tendo em mente qualquer pessoa estudando a área d
 
 Uma versão compilada em WebAssembly está disponível para ser executada em qualquer navegador web neste [link](https://juanocv.github.io/2DG/graph/).
 
+Outra demonstração realizada no Windows 11 está disponível neste [link](https://youtu.be/ot1EIo5iyiQ).
+
 Também é possível compilar o projeto localmente, seguindo as instruções de [instalação do ABCg](https://hbatagelo.github.io/cg/config.html), clonando o repositório e executando os scripts
 ```build.sh``` ou ```build.bat```, caso esteja no Linux ou Windows respectivamente. Os scripts irão compilar o projeto e criar um executável no diretório ```build```.
 
